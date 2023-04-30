@@ -1,0 +1,110 @@
+﻿# REQUIREMENTS
+## secrets
+
+# GITUBH_PAT https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token
+
+name: 🚀 Docker WebDAV
+
+on:
+  push:
+    branches: [ master ]
+
+env:
+  REGISTRY: registry.oibi.dev
+  IMAGE_NAME: ${{ github.repository }}
+
+# https://docs.github.com/en/actions/publishing-packages/publishing-docker-images#publishing-images-to-github-packages
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - uses: FranzDiebold/github-env-vars-action@v2
+      - name: Print environment variables
+        run: |
+          echo "CI_REPOSITORY_SLUG=$CI_REPOSITORY_SLUG"
+          echo "CI_REPOSITORY_OWNER=$CI_REPOSITORY_OWNER"
+          echo "CI_REPOSITORY_OWNER_SLUG=$CI_REPOSITORY_OWNER_SLUG"
+          echo "CI_REPOSITORY_NAME=$CI_REPOSITORY_NAME"
+          echo "CI_REPOSITORY_NAME_SLUG=$CI_REPOSITORY_NAME_SLUG"
+          echo "CI_REPOSITORY=$CI_REPOSITORY"
+          echo "CI_REF_SLUG=$CI_REF_SLUG"
+          echo "CI_ACTION_REF_NAME=$CI_ACTION_REF_NAME"
+          echo "CI_ACTION_REF_NAME_SLUG=$CI_ACTION_REF_NAME_SLUG"
+          echo "CI_REF_NAME=$CI_REF_NAME"
+          echo "CI_REF_NAME_SLUG=$CI_REF_NAME_SLUG"
+          echo "CI_REF=$CI_REF"
+          echo "CI_HEAD_REF_SLUG=$CI_HEAD_REF_SLUG"
+          echo "CI_HEAD_REF=$CI_HEAD_REF"
+          echo "CI_BASE_REF_SLUG=$CI_BASE_REF_SLUG"
+          echo "CI_BASE_REF=$CI_BASE_REF"
+          echo "CI_SHA_SHORT=$CI_SHA_SHORT"
+          echo "CI_SHA=$CI_SHA"
+          echo "CI_ACTOR=$CI_ACTOR"
+          echo "CI_EVENT_NAME=$CI_EVENT_NAME"
+          echo "CI_RUN_ID=$CI_RUN_ID"
+          echo "CI_RUN_NUMBER=$CI_RUN_NUMBER"
+          echo "CI_WORKFLOW=$CI_WORKFLOW"
+          echo "CI_ACTION=$CI_ACTION"
+          echo "🍳 DOCKER BUILD TAGS"
+          echo "${{ env.REGISTRY }}/$CI_REPOSITORY/$CI_REF_NAME_SLUG:latest"
+          echo "${{ env.REGISTRY }}/$CI_REPOSITORY/$CI_REF_NAME_SLUG:$CI_SHA_SHORT"
+          echo "${{ env.REGISTRY }}/$CI_REPOSITORY/$CI_REF_NAME_SLUG:$(date --utc +'%Y.%m.%d.%H%M')"
+
+      # SETUP ENV VARIABLES
+      - name: SETUP CUSTOM ENV VARIABLES
+        run: |
+          echo "BUILD_DATE=$(date --utc +'%Y-%m-%dT%H:%M:%SZ')" >> ${GITHUB_ENV}
+          echo "BUILD_VERSION=$(date --utc +'%Y.%m.%d.%H%M')" >> ${GITHUB_ENV}
+          echo "CI_SHA_SHORT=$CI_SHA_SHORT" >> ${GITHUB_ENV}
+          echo "CI_REPOSITORY_NAME=$CI_REPOSITORY_NAME" >> ${GITHUB_ENV}
+          echo "BRANCH_NAME=$CI_REF_NAME" >> ${GITHUB_ENV}
+
+
+      # LOGIN DOCKER REGISTRY (GITHUB)
+      # https://github.com/docker/login-action
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      # Docker meta
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.CI_REPOSITORY_NAME }}/${{ env.BRANCH_NAME }}
+          tags: |
+            latest
+            ${{ env.BUILD_VERSION }}
+            ${{ env.CI_SHA_SHORT }}
+            
+      # https://github.com/marketplace/actions/docker-build-push-action
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: . # <- Dockerfile folder
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            BUILD_DATE=${{ env.BUILD_DATE }}
+            BUILD_VERSION=${{ env.BUILD_VERSION }}
+            CI_COMMIT_SHA=${{ env.CI_SHA_SHORT }}
+            MAINTAINER=${{ github.actor }}
+            ENVIRONMENT=${{ env.BRANCH_NAME }}
+
+      # https://github.com/aquasecurity/trivy-action
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'

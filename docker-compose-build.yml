@@ -5,14 +5,11 @@ services:
     build: .
     ports:
       - "80:80"
-    volumes:
-      - "$HOME/docker/webdav:/media"
+    #    volumes:
+    #      - /docker/webdav:/media"
     environment:
       - USERNAME=webdav
       - PASSWORD=webdav
       - UID=1000
       - GID=1000
-      - TZ=Europe/Madrid
-      
-      
-      
+      - TZ=Europe/Rome

@@ -1,16 +1,14 @@
-FROM debian:10.6-slim
+FROM debian:stable-slim
 
-LABEL maintainer "ugeek. ugeekpodcast@gmail.com" 
+LABEL maintainer "f.fabrizi91@gmail.com"
 
 ARG UID=${UID:-1000}
 ARG GID=${GID:-1000}
 
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-                    nginx \
-                    nginx-extras \
-                    apache2-utils && \
-                    rm -rf /var/lib/apt/lists
+    nginx nginx-extras apache2-utils && \
+    apt-get clean
 
 RUN usermod -u $UID www-data && groupmod -g $GID www-data
 
