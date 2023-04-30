@@ -99,6 +99,8 @@ jobs:
             BUILD_VERSION=${{ env.BUILD_VERSION }}
             CI_COMMIT_SHA=${{ env.CI_SHA_SHORT }}
             MAINTAINER=${{ github.actor }}
+            UID=33
+            GID=33
 
       # https://github.com/aquasecurity/trivy-action
       - name: Run Trivy vulnerability scanner
